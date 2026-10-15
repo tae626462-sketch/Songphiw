@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ส่องผิว</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Trirong:ital,wght@0,500;0,600;1,400&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}
+
+/* Layout: a clinic reading card. Photo plate with measurement overlays on the left, the reading sheet on the right; stacks on phones. */
+:root{
+  --bg:#EEF3F2; --surface:#FFFFFF; --sunk:#E3EBE9; --ink:#132725; --muted:#5A6E6B; --line:#D2DDDA;
+  --accent:#A63C62; --accent-ink:#FFFFFF; --accent-soft:#F4E2E9;
+  --good:#2E7A57; --warn:#A86E14; --bad:#B23838;
+  --ov-oil:#1FA9B8; --ov-red:#E0457B; --ov-spot:#E8A317;
+  --f-display:"Trirong","Noto Serif Thai",Georgia,serif;
+  --f-body:"Anuphan","Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1716; --surface:#16211F; --sunk:#1C2926; --ink:#E3ECEA; --muted:#93A6A2; --line:#2A3A37;
+  --accent:#E8819F; --accent-ink:#1A0E13; --accent-soft:#3A2430;
+  --good:#5DC394; --warn:#E3AA4C; --bad:#EC7676; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0E1716; --surface:#16211F; --sunk:#1C2926; --ink:#E3ECEA; --muted:#93A6A2; --line:#2A3A37;
+  --accent:#E8819F; --accent-ink:#1A0E13; --accent-soft:#3A2430;
+  --good:#5DC394; --warn:#E3AA4C; --bad:#EC7676; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1140px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.top{display:flex;align-items:center;gap:14px;padding-block:6px 18px}
+.mark{flex:none;width:46px;height:46px}
+h1{font-family:var(--f-display);font-weight:600;font-size:2.1rem;line-height:1.1;margin:0;letter-spacing:.01em}
+.top p{margin:2px 0 0;color:var(--muted);font-size:.92rem;text-wrap:pretty}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.eyebrow{font-size:.74rem;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:focus-visible,.chip:focus-visible,.metric:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:default}
+.upload{position:relative;overflow:hidden}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.seg{display:inline-flex;background:var(--sunk);border-radius:10px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:.88rem;border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+.plate-wrap{margin-top:12px;background:var(--sunk);border-radius:10px;overflow:hidden;display:flex;justify-content:center}
+canvas{display:block;max-width:100%;height:auto}
+#stage{touch-action:none;cursor:grab;max-height:72vh;width:auto}
+#map{width:100%;max-width:420px}
+.ctrl{display:grid;gap:10px;margin-top:12px}
+.ctrl label{display:grid;grid-template-columns:7.5em minmax(0,1fr);align-items:center;gap:10px;font-size:.88rem;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.mstat{display:flex;gap:8px;align-items:center;font-size:.84rem;color:var(--muted);margin-top:10px;min-height:1.4em}
+.mstat .dot{background:var(--muted)}
+.mstat[data-s="loading"] .dot{background:var(--warn)}
+@media (prefers-reduced-motion:no-preference){.mstat[data-s="loading"] .dot{animation:pulse 1s ease-in-out infinite alternate}}
+@keyframes pulse{to{opacity:.25}}
+.mstat[data-s="ready"] .dot{background:var(--good)}
+.mstat[data-s="failed"] .dot{background:var(--bad)}
+.note{font-size:.85rem;color:var(--muted);margin:10px 0 0}
+details.tips{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+details.tips summary{cursor:pointer;font-weight:600;font-size:.92rem}
+details.tips ul{margin:8px 0 0;padding-left:1.2em;color:var(--muted);font-size:.9rem}
+.banner{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:.9rem;margin-bottom:14px}
+.banner[hidden]{display:none}
+.err{color:var(--bad);font-size:.9rem;margin-top:10px}
+.head{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center}
+.ring{width:124px;height:124px;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring .num b{font-family:var(--f-data);font-size:2.2rem;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+.ring .num span{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
+.type{font-family:var(--f-display);font-size:1.6rem;font-weight:600;line-height:1.2;margin:2px 0 4px}
+.sub{color:var(--muted);font-size:.9rem;margin:0}
+.ita{margin-top:18px}
+.ita-bar{position:relative;display:grid;grid-template-columns:repeat(6,1fr);height:16px;border-radius:5px;overflow:visible;margin-top:8px}
+.ita-bar i:first-child{border-radius:5px 0 0 5px}.ita-bar i:last-child{border-radius:0 5px 5px 0}
+.ita-pin{position:absolute;top:-5px;width:4px;height:26px;background:var(--ink);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 0 2px var(--surface)}
+.ita-scale{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:6px}
+.ita-read{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:.9rem}
+.swatch{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);flex:none}
+.mono{font-family:var(--f-data);font-variant-numeric:tabular-nums}
+.metrics{margin-top:20px;display:grid;gap:2px}
+.metric{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 8px;border-radius:10px;border:1px solid transparent;background:none;color:inherit;font:inherit;text-align:left;width:100%}
+button.metric{cursor:pointer}
+button.metric:hover{background:var(--sunk)}
+.metric.on{border-color:var(--line);background:var(--sunk)}
+.m-name{font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
+.m-score{font-family:var(--f-data);font-size:1.15rem;font-variant-numeric:tabular-nums;text-align:right}
+.m-bar{grid-column:1 / -1;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.metric.on .m-bar{background:var(--surface)}
+.m-bar i{display:block;height:100%;border-radius:3px}
+.m-detail{grid-column:1 / -1;font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pill{font-size:.72rem;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.s-good{color:var(--good)} .s-warn{color:var(--warn)} .s-bad{color:var(--bad)}
+.b-good{background:var(--good)} .b-warn{background:var(--warn)} .b-bad{background:var(--bad)}
+.pill.s-good{background:color-mix(in srgb,var(--good) 14%,transparent)}
+.pill.s-warn{background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.pill.s-bad{background:color-mix(in srgb,var(--bad) 14%,transparent)}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.25rem;margin:26px 0 8px}
+.care{display:grid;gap:10px}
+.care div{border-left:3px solid var(--line);padding:2px 0 2px 12px}
+.care b{display:block;font-size:.92rem}
+.care p{margin:2px 0 0;font-size:.88rem;color:var(--muted);text-wrap:pretty}
+.hist{display:grid;gap:4px;font-size:.88rem}
+.hist div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.legal{margin-top:22px;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;text-wrap:pretty}
+.busy{opacity:.55;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){.ring circle.v,.m-bar i{transition:stroke-dashoffset .7s ease,width .6s ease}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <svg class="mark" viewBox="0 0 46 46" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="var(--accent)" stroke-width="2.5"/><circle cx="21" cy="21" r="8.5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1"/><circle cx="18" cy="18" r="1.6" fill="var(--accent)"/><circle cx="24" cy="22" r="1.1" fill="var(--accent)"/><circle cx="20" cy="24.5" r=".9" fill="var(--accent)"/><path d="M32 32l10 10" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/></svg>
+    <div>
+      <h1>ส่องผิว</h1>
+      <p>วิเคราะห์ผิวหน้าจากรูปเซลฟี่ · ประมวลผลในเครื่องของคุณ รูปไม่ถูกส่งออกไปไหน</p>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel" id="platePanel">
+      <div class="row" style="justify-content:space-between">
+        <label class="btn primary upload">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          ถ่าย / เลือกรูปเซลฟี่
+          <input type="file" id="file" accept="image/*" capture="user" aria-label="ถ่ายหรือเลือกรูปเซลฟี่">
+        </label>
+        <div class="seg" role="group" aria-label="มุมมอง">
+          <button type="button" id="vFrame" aria-pressed="false">จัดกรอบหน้า</button>
+          <button type="button" id="vMap" aria-pressed="true">แผนที่ผิว</button>
+        </div>
+      </div>
+
+      <div class="mstat" id="mstat" data-s="loading" role="status"><span class="dot"></span><span id="mtext">กำลังโหลดโมเดลจับจุดใบหน้า…</span></div>
+
+      <div id="frameView" hidden>
+        <div class="plate-wrap"><canvas id="stage" aria-label="รูปพร้อมกรอบใบหน้า ลากเพื่อย้ายกรอบ"></canvas></div>
+        <p class="note" id="frameNote"></p>
+        <div class="ctrl">
+          <label for="rSize">ขนาดกรอบ <input type="range" id="rSize" min="0.08" max="0.6" step="0.005"></label>
+          <label for="rTall">ความยาวหน้า <input type="range" id="rTall" min="1.1" max="1.55" step="0.01"></label>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" id="go" type="button">วิเคราะห์ผิว</button><button class="btn" id="autoBtn" type="button" hidden>กลับไปใช้จุดใบหน้าอัตโนมัติ</button></div>
+      </div>
+
+      <div id="mapView">
+        <div class="plate-wrap"><canvas id="map" aria-label="แผนที่ผิวพร้อมจุดที่ตรวจพบ"></canvas></div>
+        <div class="chips" id="chips" role="group" aria-label="ชั้นข้อมูลบนใบหน้า"></div>
+        <p class="note" id="layerNote"></p>
+      </div>
+      <p class="err" id="err" hidden></p>
+
+      <details class="tips">
+        <summary>ถ่ายอย่างไรให้ผลแม่นขึ้น</summary>
+        <ul>
+          <li>หันหน้าเข้าหาหน้าต่าง ใช้แสงธรรมชาติ ไม่ใช้แฟลช</li>
+          <li>หน้าสด ไม่ทาครีม ไม่ใช้ฟิลเตอร์หรือโหมดบิวตี้</li>
+          <li>มองตรง ถอดแว่น รวบผมให้เห็นหน้าผาก</li>
+          <li>เทียบผลระยะยาวด้วยมุม แสง และเวลาเดิมทุกครั้ง</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="panel" id="sheet">
+      <div class="banner" id="sampleBanner">ตอนนี้แสดงผลจาก <b>ภาพหน้าสังเคราะห์ตัวอย่าง</b> กด “ถ่าย / เลือกรูปเซลฟี่” เพื่อวิเคราะห์หน้าของคุณ</div>
+      <div class="head">
+        <div class="ring" aria-label="คะแนนผิวรวม">
+          <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--sunk)" stroke-width="10"/><circle class="v" id="ringV" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73"/></svg>
+          <div class="num"><b id="overall">–</b><span>คะแนนรวม</span></div>
+        </div>
+        <div>
+          <div class="eyebrow">ประเภทผิว (ประเมินคร่าวๆ)</div>
+          <div class="type" id="skinType">–</div>
+          <p class="sub" id="typeNote"></p>
+        </div>
+      </div>
+
+      <div class="ita">
+        <div class="eyebrow">โทนสีผิว · ค่า ITA°</div>
+        <div class="ita-bar" id="itaBar">
+          <i style="background:#F2D8C6"></i><i style="background:#E6BE9F"></i><i style="background:#D4A07A"></i><i style="background:#B98056"></i><i style="background:#8A5838"></i><i style="background:#563522"></i>
+          <span class="ita-pin" id="itaPin" style="left:50%"></span>
+        </div>
+        <div class="ita-scale"><span>ขาวมาก &gt;55°</span><span>41°</span><span>28°</span><span>10°</span><span>−30°</span><span>เข้ม</span></div>
+        <div class="ita-read"><span class="swatch" id="swatch"></span><span id="itaText">–</span></div>
+      </div>
+
+      <div class="metrics" id="metrics"></div>
+
+      <h2>แนะนำการดูแล</h2>
+      <div class="care" id="care"></div>
+
+      <h2>ประวัติการวิเคราะห์</h2>
+      <div class="hist" id="hist"></div>
+      <div class="row" style="margin-top:10px"><button class="btn" type="button" id="clearHist" hidden>ลบประวัติ</button></div>
+
+      <p class="legal">ตำแหน่งตา คิ้ว จมูก ปาก หาด้วยโมเดล MediaPipe Face Mesh ที่รันในเครื่อง ส่วนคะแนนคำนวณจากสีและความสว่างของพิกเซลในรูป จึงเปลี่ยนตามแสง กล้อง และการแต่งหน้า ใช้ติดตามแนวโน้มของตัวเองได้ แต่ไม่ใช่การวินิจฉัยทางการแพทย์ หากมีผื่น สิวอักเสบรุนแรง หรือไฝ/จุดที่เปลี่ยนขนาด รูปร่าง หรือสี ควรพบแพทย์ผิวหนัง</p>
+    </section>
+  </main>
+</div>
+
+<script>
+// ===== ส่องผิว core: pure functions on RGBA arrays =====
+const LUT = new Float32Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; LUT[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function fLab(t) { return t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116; }
+function rgb2lab(r, g, b, out) {
+  const R = LUT[r], G = LUT[g], B = LUT[b];
+  const X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
+  const Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
+  const Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+  const fx = fLab(X), fy = fLab(Y), fz = fLab(Z);
+  out[0] = 116 * fy - 16; out[1] = 500 * (fx - fy); out[2] = 200 * (fy - fz);
+}
+function isSkinRGB(r, g, b) {
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+  const Y = 0.299 * r + 0.587 * g + 0.114 * b;
+  return cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && Y > 58;
+}
+const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+
+// ---- find face oval from the largest skin region ----
+function detectFace(data, W, H) {
+  const step = Math.max(1, Math.floor(W / 140));
+  const gw = Math.floor(W / step), gh = Math.floor(H / step);
+  const m = new Uint8Array(gw * gh);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    const p = ((y * step) * W + x * step) * 4;
+    m[y * gw + x] = isSkinRGB(data[p], data[p + 1], data[p + 2]) ? 1 : 0;
+  }
+  const lab = new Int32Array(gw * gh); let best = null, id = 0; const st = [];
+  for (let i = 0; i < m.length; i++) {
+    if (!m[i] || lab[i]) continue;
+    id++; st.length = 0; st.push(i); lab[i] = id; const px = [];
+    while (st.length) {
+      const j = st.pop(); px.push(j); const x = j % gw, y = (j / gw) | 0;
+      if (x > 0 && m[j - 1] && !lab[j - 1]) { lab[j - 1] = id; st.push(j - 1); }
+      if (x < gw - 1 && m[j + 1] && !lab[j + 1]) { lab[j + 1] = id; st.push(j + 1); }
+      if (y > 0 && m[j - gw] && !lab[j - gw]) { lab[j - gw] = id; st.push(j - gw); }
+      if (y < gh - 1 && m[j + gw] && !lab[j + gw]) { lab[j + gw] = id; st.push(j + gw); }
+    }
+    if (!best || px.length > best.length) best = px;
+  }
+  const fallback = { cx: W / 2, cy: H * 0.46, rx: W * 0.28, k: 1.32 };
+  if (!best || best.length < gw * gh * 0.02) return fallback;
+  let miny = 1e9, maxy = -1; const rows = new Map();
+  for (const j of best) {
+    const x = j % gw, y = (j / gw) | 0;
+    miny = Math.min(miny, y); maxy = Math.max(maxy, y);
+    const r = rows.get(y); if (r) { r[0] = Math.min(r[0], x); r[1] = Math.max(r[1], x); } else rows.set(y, [x, x]);
+  }
+  const lim = miny + (maxy - miny) * 0.5; const ws = [], cs = [];
+  for (const [y, r] of rows) if (y <= lim) { ws.push(r[1] - r[0] + 1); cs.push((r[0] + r[1] + 1) / 2); }
+  ws.sort((a, b) => a - b); const fw = ws[Math.floor(ws.length * 0.85)] * step;
+  cs.sort((a, b) => a - b); const cx = cs[Math.floor(cs.length / 2)] * step;
+  const rx = fw / 2 * 0.97, k = 1.32, ry = rx * k;
+  const cy = Math.min(miny * step + ry, H - ry * 0.6);
+  return { cx, cy, rx, k };
+}
+
+// ---- crop a (possibly rotated) face box to a fixed width, 2x2 supersampled bilinear ----
+function cropFace(data, W, H, box, OW) {
+  const OH = Math.round(OW * box.k), rx = box.rx, ry = rx * box.k, a = box.angle || 0, ca = Math.cos(a), sa = Math.sin(a);
+  const sx = rx * 2 / OW, sy = ry * 2 / OH;
+  const out = new Uint8ClampedArray(OW * OH * 4);
+  for (let y = 0; y < OH; y++) for (let x = 0; x < OW; x++) {
+    let r = 0, g = 0, b = 0, ok = true;
+    for (let s = 0; s < 4 && ok; s++) {
+      const lx = (x + 0.25 + 0.5 * (s & 1)) * sx - rx, ly = (y + 0.25 + 0.5 * (s >> 1)) * sy - ry;
+      const px = box.cx + lx * ca - ly * sa, py = box.cy + lx * sa + ly * ca;
+      if (px < 0 || py < 0 || px > W - 1 || py > H - 1) { ok = false; break; }
+      const ix = Math.floor(px), iy = Math.floor(py), fx = px - ix, fy = py - iy;
+      const ix1 = Math.min(ix + 1, W - 1), iy1 = Math.min(iy + 1, H - 1);
+      const p00 = (iy * W + ix) * 4, p10 = (iy * W + ix1) * 4, p01 = (iy1 * W + ix) * 4, p11 = (iy1 * W + ix1) * 4;
+      for (let c = 0; c < 3; c++) {
+        const v = (data[p00 + c] * (1 - fx) + data[p10 + c] * fx) * (1 - fy) + (data[p01 + c] * (1 - fx) + data[p11 + c] * fx) * fy;
+        if (c === 0) r += v; else if (c === 1) g += v; else b += v;
+      }
+    }
+    const o = (y * OW + x) * 4;
+    if (ok) { out[o] = r / 4; out[o + 1] = g / 4; out[o + 2] = b / 4; out[o + 3] = 255; }
+  }
+  return { data: out, W: OW, H: OH };
+}
+// image point -> crop pixel
+function toCrop(p, box, OW) {
+  const OH = Math.round(OW * box.k), rx = box.rx, ry = rx * box.k, a = box.angle || 0, ca = Math.cos(a), sa = Math.sin(a);
+  const dx = p[0] - box.cx, dy = p[1] - box.cy, lx = dx * ca + dy * sa, ly = -dx * sa + dy * ca;
+  return [(lx + rx) / (2 * rx) * OW, (ly + ry) / (2 * ry) * OH];
+}
+
+// zones in normalized oval coords (u,v in -1..1, top of oval = hairline, bottom = chin)
+// 1 forehead, 2 nose, 3 cheek L, 4 cheek R, 5 chin, 6 under-eye L, 7 under-eye R
+function zoneOf(u, v) {
+  const au = Math.abs(u);
+  if (v > -0.85 && v < -0.5 && au < 0.5) return 1;
+  if (v > -0.42 && v < 0.16 && au < 0.11) return 2;
+  if (v > 0.12 && v < 0.45 && au > 0.3 && au < 0.72) return u < 0 ? 3 : 4;
+  if (v > 0.72 && v < 0.9 && au < 0.3) return 5;
+  if (v > -0.05 && v < 0.08 && au > 0.2 && au < 0.6) return u < 0 ? 6 : 7;
+  return 0;
+}
+function excluded(u, v) {
+  const au = Math.abs(u);
+  return (v > -0.44 && v < -0.06 && au > 0.11 && au < 0.76) // brows + eyes
+    || (v > 0.4 && v < 0.7 && au < 0.42)                     // mouth
+    || (v > 0.17 && v < 0.37 && au < 0.24);                  // nostrils
+}
+
+function ovalGeometry(W, H) {
+  const base = new Uint8Array(W * H), zone = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const u = (x + 0.5) / W * 2 - 1, v = (y + 0.5) / H * 2 - 1, i = y * W + x;
+    if (u * u + v * v > 0.86 || excluded(u, v)) continue;
+    base[i] = 1; zone[i] = zoneOf(u, v);
+  }
+  return { base, zone, mode: 'oval' };
+}
+
+// ---- MediaPipe Face Mesh landmark geometry (468/478 points) ----
+const LM = {
+  oval: [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109],
+  eyeR: [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246],
+  eyeL: [263,249,390,373,374,380,381,382,362,398,384,385,386,387,388,466],
+  browR: [70,63,105,66,107,55,65,52,53,46],
+  browL: [300,293,334,296,336,285,295,282,283,276],
+  lips: [61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185],
+  forehead: [103,67,109,10,338,297,332,300,293,334,296,336,107,66,105,63,70],
+  noseMid: [168,6,197,195,5,4,1],
+  lidR: [33,7,163,144,145,153,154,155,133],
+  lidL: [263,249,390,373,374,380,381,382,362],
+};
+function fillPoly(arr, W, H, pts, val, keep) {
+  let y0 = H, y1 = 0; for (const p of pts) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+  y0 = Math.max(0, Math.floor(y0)); y1 = Math.min(H - 1, Math.ceil(y1));
+  const xs = [];
+  for (let y = y0; y <= y1; y++) {
+    const yc = y + 0.5; xs.length = 0;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i], b = pts[j];
+      if ((a[1] > yc) !== (b[1] > yc)) xs.push(a[0] + (yc - a[1]) / (b[1] - a[1]) * (b[0] - a[0]));
+    }
+    xs.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const xa = Math.max(0, Math.ceil(xs[k] - 0.5)), xb = Math.min(W - 1, Math.floor(xs[k + 1] - 0.5));
+      for (let x = xa; x <= xb; x++) { const i = y * W + x; if (!keep || keep[i]) arr[i] = val; }
+    }
+  }
+}
+function circlePts(c, r, n = 28) { const o = []; for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; o.push([c[0] + Math.cos(t) * r, c[1] + Math.sin(t) * r]); } return o; }
+function scalePts(pts, fx, fy) {
+  let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
+  return pts.map(p => [cx + (p[0] - cx) * fx, cy + (p[1] - cy) * fy]);
+}
+// pts: landmark positions already in crop pixel coords (face upright)
+function landmarkGeometry(W, H, pts) {
+  const P = idx => idx.map(i => pts[i]);
+  const fw = Math.hypot(pts[454][0] - pts[234][0], pts[454][1] - pts[234][1]);
+  const base = new Uint8Array(W * H), zone = new Uint8Array(W * H);
+  fillPoly(base, W, H, scalePts(P(LM.oval), 0.95, 0.96), 1);
+  fillPoly(base, W, H, scalePts(P(LM.eyeR), 1.4, 2.6), 0);
+  fillPoly(base, W, H, scalePts(P(LM.eyeL), 1.4, 2.6), 0);
+  fillPoly(base, W, H, scalePts(P(LM.browR), 1.2, 2.0), 0);
+  fillPoly(base, W, H, scalePts(P(LM.browL), 1.2, 2.0), 0);
+  fillPoly(base, W, H, scalePts(P(LM.lips), 1.12, 1.35), 0);
+  for (const [i, r] of [[98, .055], [327, .055], [2, .045]]) fillPoly(base, W, H, circlePts(pts[i], r * fw), 0);
+  // zones (only where base allows)
+  fillPoly(zone, W, H, P(LM.forehead), 1, base);
+  const mid = P(LM.noseMid), hw = [.04, .045, .05, .055, .06, .07, .075].map(v => v * fw);
+  fillPoly(zone, W, H, [...mid.map((p, i) => [p[0] - hw[i], p[1]]), ...mid.map((p, i) => [p[0] + hw[i], p[1]]).reverse()], 2, base);
+  fillPoly(zone, W, H, circlePts(pts[50], .11 * fw), 3, base);
+  fillPoly(zone, W, H, circlePts(pts[280], .11 * fw), 4, base);
+  const ch = [pts[17][0] * .4 + pts[152][0] * .6, pts[17][1] * .4 + pts[152][1] * .6];
+  fillPoly(zone, W, H, circlePts(ch, .085 * fw), 5, base);
+  for (const [lid, z] of [[LM.lidR, 6], [LM.lidL, 7]]) {
+    const q = P(lid);
+    fillPoly(zone, W, H, [...q.map(p => [p[0], p[1] + .035 * fw]), ...q.map(p => [p[0], p[1] + .12 * fw]).reverse()], z, base);
+  }
+  return { base, zone, mode: 'mesh' };
+}
+// face box from landmarks in image pixels
+function boxFromLandmarks(pts) {
+  const avg = ids => ids.reduce((a, i) => [a[0] + pts[i][0] / ids.length, a[1] + pts[i][1] / ids.length], [0, 0]);
+  const e1 = avg([33, 133]), e2 = avg([263, 362]);
+  const angle = Math.atan2(e2[1] - e1[1], e2[0] - e1[0]);
+  const ca = Math.cos(angle), sa = Math.sin(angle);
+  const o = avg([10, 152]);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const i of LM.oval) {
+    const dx = pts[i][0] - o[0], dy = pts[i][1] - o[1], lx = dx * ca + dy * sa, ly = -dx * sa + dy * ca;
+    x0 = Math.min(x0, lx); x1 = Math.max(x1, lx); y0 = Math.min(y0, ly); y1 = Math.max(y1, ly);
+  }
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  const rx = (x1 - x0) / 2 * 1.06, ry = (y1 - y0) / 2 * 1.05;
+  return { cx: o[0] + mx * ca - my * sa, cy: o[1] + mx * sa + my * ca, rx, k: ry / rx, angle };
+}
+
+function maskedBlur(src, mask, W, H, r) {
+  const W1 = W + 1, S = new Float64Array(W1 * (H + 1)), M = new Float64Array(W1 * (H + 1));
+  for (let y = 0; y < H; y++) {
+    let rs = 0, rm = 0;
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x; if (mask[i]) { rs += src[i]; rm++; }
+      S[(y + 1) * W1 + x + 1] = S[y * W1 + x + 1] + rs; M[(y + 1) * W1 + x + 1] = M[y * W1 + x + 1] + rm;
+    }
+  }
+  const out = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const ya = Math.max(0, y - r), yb = Math.min(H, y + r + 1);
+    for (let x = 0; x < W; x++) {
+      const xa = Math.max(0, x - r), xb = Math.min(W, x + r + 1);
+      const s = S[yb * W1 + xb] - S[ya * W1 + xb] - S[yb * W1 + xa] + S[ya * W1 + xa];
+      const m = M[yb * W1 + xb] - M[ya * W1 + xb] - M[yb * W1 + xa] + M[ya * W1 + xa];
+      out[y * W + x] = m > 0 ? s / m : src[y * W + x];
+    }
+  }
+  return out;
+}
+function median(arr) { if (!arr.length) return 0; const a = Float32Array.from(arr).sort(); return a[a.length >> 1]; }
+function stdOf(vals) { let s = 0, s2 = 0; for (const v of vals) { s += v; s2 += v * v; } const n = vals.length || 1, m = s / n; return Math.sqrt(Math.max(0, s2 / n - m * m)); }
+
+function analyzeFace(img, geom) {
+  geom = geom || ovalGeometry(img.W, img.H);
+  const { data, W, H } = img, N = W * H, lab = [0, 0, 0];
+  const L = new Float32Array(N), A = new Float32Array(N), B = new Float32Array(N), C = new Float32Array(N);
+  const valid = new Uint8Array(N), zone = new Uint8Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, p = i * 4;
+    rgb2lab(data[p], data[p + 1], data[p + 2], lab);
+    L[i] = lab[0]; A[i] = lab[1]; B[i] = lab[2]; C[i] = Math.hypot(lab[1], lab[2]);
+    if (data[p + 3] < 200 || !geom.base[i]) continue;
+    const skin = isSkinRGB(data[p], data[p + 1], data[p + 2]);
+    const shiny = lab[0] > 62 && C[i] < 22;
+    if ((skin || shiny) && lab[0] > 22) { valid[i] = 1; zone[i] = geom.zone[i]; }
+  }
+  // drop much darker pixels inside the face (hair fringe, deep shadow) before measuring
+  { const v0 = []; for (let i = 0; i < N; i++) if (valid[i]) v0.push(L[i]);
+    const cut = median(v0) - 22; for (let i = 0; i < N; i++) if (valid[i] && L[i] < cut) { valid[i] = 0; zone[i] = 0; } }
+  let nValid = 0; const Ls = [], As = [], Cs = [];
+  for (let i = 0; i < N; i++) if (valid[i]) { nValid++; Ls.push(L[i]); As.push(A[i]); Cs.push(C[i]); }
+  if (nValid < N * 0.15) return { error: 'พื้นที่ผิวในกรอบน้อยเกินไป ลองขยับกรอบให้ครอบใบหน้า หรือใช้รูปที่แสงสว่างกว่านี้' };
+  const meanL = Ls.reduce((a, b) => a + b, 0) / nValid, sdL = stdOf(Ls), medA = median(As), medC = median(Cs);
+  const Lb2 = maskedBlur(L, valid, W, H, 2), Lb8 = maskedBlur(L, valid, W, H, 8), Lb24 = maskedBlur(L, valid, W, H, 24);
+  const Ab8 = maskedBlur(A, valid, W, H, 8), Ab24 = maskedBlur(A, valid, W, H, 24), Bb8 = maskedBlur(B, valid, W, H, 8), Bb24 = maskedBlur(B, valid, W, H, 24);
+  const spec = new Uint8Array(N), red = new Uint8Array(N), spot = new Uint8Array(N);
+  const zc = new Float64Array(8), zSpec = new Float64Array(8), zL = new Float64Array(8), zLn = new Float64Array(8);
+  let nRed = 0, nSpot = 0, nSpec = 0; const tex = [], even = [];
+  let cheekL = 0, cheekB = 0, cheekN = 0, cr = 0, cg = 0, cbb = 0;
+  for (let i = 0; i < N; i++) {
+    if (!valid[i]) continue; const z = zone[i];
+    const s = L[i] > meanL && L[i] > Lb24[i] + 5 && C[i] < medC * 0.85; spec[i] = s ? 1 : 0;
+    if (s) nSpec++;
+    if (!s && A[i] > medA + 6.5) { red[i] = 1; nRed++; }
+    if (!s && Lb8[i] - L[i] > 5.5) { spot[i] = 1; nSpot++; }
+    zc[z]++; if (s) zSpec[z]++;
+    if (!s) { zL[z] += L[i]; zLn[z]++; }
+    if (z && z !== 6 && z !== 7) { if (z !== 2 && !s) even.push(Math.hypot(Ab8[i] - Ab24[i], Bb8[i] - Bb24[i])); if (!s && z !== 2) tex.push(L[i] - Lb2[i]); }
+    if ((z === 3 || z === 4) && !s && !red[i] && !spot[i]) {
+      cheekL += L[i]; cheekB += B[i]; cheekN++;
+      const p = i * 4; cr += data[p]; cg += data[p + 1]; cbb += data[p + 2];
+    }
+  }
+  // spot blobs
+  const seen = new Uint8Array(N); let blobs = 0; const st = [];
+  for (let i = 0; i < N; i++) {
+    if (!spot[i] || seen[i]) continue; let n = 0; st.length = 0; st.push(i); seen[i] = 1;
+    while (st.length) { const j = st.pop(); n++; const x = j % W;
+      for (const k of [x > 0 ? j - 1 : -1, x < W - 1 ? j + 1 : -1, j - W, j + W]) if (k >= 0 && k < N && spot[k] && !seen[k]) { seen[k] = 1; st.push(k); } }
+    if (n >= 6 && n <= 900) blobs++;
+  }
+  const frac = (a, b) => b ? a / b : 0;
+  const tFrac = frac(zSpec[1] + zSpec[2], zc[1] + zc[2]);
+  const cFrac = frac(zSpec[3] + zSpec[4], zc[3] + zc[4]);
+  const redFrac = nRed / nValid, spotFrac = nSpot / nValid;
+  const texSd = stdOf(tex); let evenSd = 0; for (const e of even) evenSd += e * e; evenSd = Math.sqrt(evenSd / (even.length || 1));
+  const ue = frac(zL[6] + zL[7], zLn[6] + zLn[7]), ck = frac(zL[3] + zL[4], zLn[3] + zLn[4]);
+  const darkDiff = (zLn[6] + zLn[7]) > 50 ? ck - ue : 0;
+  const mL = cheekN ? cheekL / cheekN : meanL, mB = cheekN ? cheekB / cheekN : 15;
+  const ita = Math.atan2(mL - 50, mB) * 180 / Math.PI;
+
+  const scores = {
+    oil: Math.round(clamp(100 - tFrac * 650 - cFrac * 300)),
+    red: Math.round(clamp(100 - redFrac * 420 - Math.max(0, medA - 17) * 3)),
+    spot: Math.round(clamp(100 - spotFrac * 520 - blobs * 0.7)),
+    even: Math.round(clamp(100 - Math.max(0, evenSd - 0.8) * 20)),
+    tex: Math.round(clamp(100 - Math.max(0, texSd - 1.0) * 22)),
+    dark: Math.round(clamp(100 - Math.max(0, darkDiff - 1.5) * 6.5)),
+  };
+  const w = { oil: .15, red: .2, spot: .2, even: .15, tex: .15, dark: .15 };
+  let overall = 0; for (const k in w) overall += scores[k] * w[k];
+
+  let type;
+  if (tFrac > 0.045 && cFrac > 0.025) type = 'ผิวมัน';
+  else if (tFrac > 0.03) type = 'ผิวผสม';
+  else if (tFrac < 0.008 && texSd > 2.4) type = 'ผิวค่อนข้างแห้ง';
+  else type = 'ผิวธรรมดา';
+
+  return {
+    W, H, scores, overall: Math.round(overall), type, ita,
+    tone: cheekN ? [cr / cheekN, cg / cheekN, cbb / cheekN].map(Math.round) : null,
+    raw: { tFrac, cFrac, redFrac, medA, spotFrac, blobs, evenSd, texSd, darkDiff },
+    masks: { valid, spec, red, spot, zone }, mode: geom.mode
+  };
+}
+
+function itaClass(ita) {
+  if (ita > 55) return 'ขาวมาก';
+  if (ita > 41) return 'ขาว';
+  if (ita > 28) return 'ขาวเหลือง / กลาง';
+  if (ita > 10) return 'สองสี / แทน';
+  if (ita > -30) return 'คล้ำ / น้ำตาล';
+  return 'เข้ม';
+}
+
+// ---- synthetic sample face (deterministic) ----
+function genSample(W = 600, H = 780) {
+  const out = new Uint8ClampedArray(W * H * 4);
+  const hash = (x, y, s) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 982451653); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+  const vn = (x, y, s) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+  const g2 = (u, v, cu, cv, su, sv) => Math.exp(-(((u - cu) / su) ** 2 + ((v - cv) / sv) ** 2) / 2);
+  const inE = (u, v, cu, cv, ru, rv) => ((u - cu) / ru) ** 2 + ((v - cv) / rv) ** 2 < 1;
+  const FX = 300, FY = 380, RX = 190, RY = 250;
+  const spots = [[-0.42, 0.18, .022], [0.5, 0.36, .018], [0.36, 0.22, .015], [-0.22, -0.66, .02], [0.25, -0.58, .014], [-0.55, 0.4, .016], [0.15, 0.78, .015], [-0.6, -0.1, .014], [0.62, 0.05, .017], [-0.3, 0.3, .012]];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = (y * W + x) * 4; let r, g, b;
+    const bgk = y / H; r = 214 - 24 * bgk; g = 222 - 21 * bgk; b = 224 - 20 * bgk;
+    if (y > 560 && x > 222 && x < 378) { const t = (vn(x / 3, y / 3, 7) - .5) * 8; r = 205 + t; g = 160 + t; b = 133 + t; }
+    if (y > 690) { r = 62; g = 88; b = 104; }
+    if (((x - 300) / 228) ** 2 + ((y - 345) / 290) ** 2 < 1 && y < 560) { const t = vn(x / 4, y / 9, 3) * 18; r = 46 + t; g = 34 + t * .8; b = 30 + t * .7; }
+    const u = (x - FX) / RX, v = (y - FY) / RY, rr = Math.hypot(u, v);
+    if (rr < 1) {
+      const shade = 1.03 - 0.05 * v - 0.16 * Math.max(0, (rr - 0.55) / 0.45) ** 2;
+      const tx = (vn(x / 1.8, y / 1.8, 1) - .5) * 0.13 + (vn(x / 10, y / 10, 2) - .5) * 0.05;
+      r = 224 * (shade + tx); g = 181 * (shade + tx); b = 153 * (shade + tx);
+      const rd = g2(Math.abs(u), v, 0.5, 0.3, 0.13, 0.12) * (0.6 + 0.8 * vn(x / 6, y / 6, 4));
+      r += 10 * rd; g -= 16 * rd; b -= 9 * rd;
+      const ue = g2(Math.abs(u), v, 0.36, -0.02, 0.14, 0.055); r *= 1 - .15 * ue; g *= 1 - .17 * ue; b *= 1 - .1 * ue;
+      for (const [su, sv, sz] of spots) { const s = g2(u, v, su, sv, sz, sz * RX / RY); r *= 1 - .26 * s; g *= 1 - .31 * s; b *= 1 - .34 * s; }
+      const sh = 0.7 * Math.max(g2(u, v, 0.05, -0.64, 0.17, 0.07), g2(u, v, 0, -0.12, 0.045, 0.16), 0.5 * g2(u, v, 0.02, 0.1, 0.06, 0.05));
+      r = r * (1 - sh) + 252 * sh; g = g * (1 - sh) + 245 * sh; b = b * (1 - sh) + 238 * sh;
+      for (const sx of [-1, 1]) {
+        if (inE(u, v, sx * 0.38, -0.37, 0.2, 0.032)) { r = 74; g = 55; b = 47; }
+        if (inE(u, v, sx * 0.38, -0.2, 0.15, 0.055)) { r = 236; g = 232; b = 228; if (inE(u, v, sx * 0.38, -0.2, 0.055, 0.055 * RX / RY * 1.9)) { r = 64; g = 46; b = 38; } }
+        if (inE(u, v, sx * 0.075, 0.27, 0.035, 0.022)) { r = 128; g = 84; b = 72; }
+      }
+      if (inE(u, v, 0, 0.56, 0.22, 0.065)) { r = 186; g = 90; b = 97; }
+    }
+    out[o] = r; out[o + 1] = g; out[o + 2] = b; out[o + 3] = 255;
+  }
+  return out;
+}
+if (typeof module !== 'undefined') module.exports = { genSample, detectFace, cropFace, analyzeFace, itaClass, landmarkGeometry, boxFromLandmarks, toCrop, ovalGeometry };
+
+// ===== ส่องผิว UI =====
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), sctx = stage.getContext('2d');
+const mapC = $('#map'), mctx = mapC.getContext('2d');
+const work = document.createElement('canvas'), wctx = work.getContext('2d', { willReadFrequently: true });
+let workData = null, oval = null, isSample = true, result = null, crop = null, layer = 'none';
+// geo.mode: 'mesh' (landmarks found) or 'oval' (manual / fallback frame)
+let geo = { mode: 'oval', lm: null, box: null, cropPts: null };
+
+// ---- MediaPipe Face Mesh loader: published files first, then CDN ----
+const MP_VER = '0.4.1633559619';
+const MP_BASES = ['mp/', `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${MP_VER}/`];
+const mesh = { state: 'loading', fm: null, promise: null };
+function setMeshStatus(st, text) { mesh.state = st; $('#mstat').dataset.s = st; $('#mtext').textContent = text; }
+function loadScript(src) { return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => { el.remove(); rej(new Error('script ' + src)); }; document.head.appendChild(el); }); }
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const READY_TEXT = 'โมเดลจับจุดใบหน้าพร้อม · หาตา คิ้ว จมูก ปาก อัตโนมัติ 468 จุด';
+async function initMesh() {
+  setMeshStatus('loading', 'กำลังโหลดโมเดลจับจุดใบหน้า (ราว 10 MB ครั้งแรก)…');
+  for (const base of MP_BASES) {
+    try {
+      const local = !/^https?:/.test(base), urls = {};
+      if (local) {
+        // binary model files ship base64-encoded inside a script; turn them into blob URLs
+        await withTimeout(loadScript(base + 'face_mesh_assets.js'), 20000);
+        for (const [name, b64] of Object.entries(window.__FM_ASSETS || {})) {
+          const bin = atob(b64), u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          urls[name] = URL.createObjectURL(new Blob([u8]));
+        }
+        delete window.__FM_ASSETS;
+      }
+      if (!window.FaceMesh) await withTimeout(loadScript(base + 'face_mesh.js'), 15000);
+      const fm = new window.FaceMesh({ locateFile: f => urls[f] || base + f });
+      fm.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5, selfieMode: false });
+      await withTimeout(fm.initialize(), 45000);
+      mesh.fm = fm;
+      setMeshStatus('ready', READY_TEXT);
+      return true;
+    } catch (err) { console.warn('FaceMesh', base, err); }
+  }
+  setMeshStatus('failed', 'โหลดโมเดลจับจุดใบหน้าไม่ได้ ใช้กรอบวงรีที่ปรับเองได้แทน');
+  return false;
+}
+let meshQueue = Promise.resolve();
+function findLandmarks(canvas) {
+  // one image at a time; resolves to [[x,y], ...] in canvas pixels, or null
+  const job = meshQueue.then(() => new Promise(res => {
+    mesh.fm.onResults(r => res(r && r.multiFaceLandmarks && r.multiFaceLandmarks[0] ? r.multiFaceLandmarks[0].map(p => [p.x * canvas.width, p.y * canvas.height]) : null));
+    try { mesh.fm.reset(); } catch {}
+    withTimeout(mesh.fm.send({ image: canvas }), 20000).catch(() => res(null));
+  }));
+  meshQueue = job.catch(() => {});
+  return job;
+}
+async function locateFace() {
+  geo = { mode: 'oval', lm: null, box: null, cropPts: null };
+  if (mesh.state === 'loading' && mesh.promise) { setMeshStatus('loading', 'รอโมเดลจับจุดใบหน้าโหลดเสร็จ…'); await mesh.promise; }
+  if (mesh.state !== 'ready') return 'nomodel';
+  setMeshStatus('loading', 'กำลังหาจุดบนใบหน้า…');
+  const lm = await findLandmarks(work);
+  setMeshStatus('ready', READY_TEXT);
+  if (!lm) return 'noface';
+  geo = { mode: 'mesh', lm, box: boxFromLandmarks(lm), cropPts: null };
+  oval = { ...geo.box };
+  syncSliders();
+  return 'mesh';
+}
+const HKEY = 'songphiw.history.v1';
+
+const METRICS = [
+  { key: 'oil', name: 'ความมัน', layer: 'oil',
+    detail: r => `ความเงาโซน T ${(r.raw.tFrac * 100).toFixed(1)}% · แก้ม ${(r.raw.cFrac * 100).toFixed(1)}%`,
+    care: 'ล้างหน้าเช้า-เย็นด้วยคลีนเซอร์อ่อนโยน ใช้มอยส์เจอไรเซอร์เนื้อเจลที่ไม่อุดตัน ส่วนผสมที่ช่วยคุมมัน เช่น ไนอาซินาไมด์ หรือ BHA (ซาลิไซลิก แอซิด)' },
+  { key: 'red', name: 'รอยแดง', layer: 'red',
+    detail: r => `บริเวณแดงกว่าผิวรอบข้าง ${(r.raw.redFrac * 100).toFixed(1)}%`,
+    care: 'งดสครับและผลิตภัณฑ์ที่มีน้ำหอมหรือแอลกอฮอล์ ใช้ส่วนผสมปลอบผิว เช่น สารสกัดใบบัวบก (Centella) ทากันแดดทุกวัน ถ้าแดงร่วมกับคัน แสบ หรือสิวอักเสบ ควรพบแพทย์' },
+  { key: 'spot', name: 'จุดด่างดำ', layer: 'spot',
+    detail: r => `พบจุดเข้มกว่าผิวรอบข้างราว ${r.raw.blobs} จุด`,
+    care: 'ทากันแดด SPF30 ขึ้นไปทุกวันและทาซ้ำเมื่ออยู่กลางแจ้ง ส่วนผสมที่ช่วยให้จุดจางลง เช่น วิตามินซี ไนอาซินาไมด์ อาร์บูติน จุดที่โตเร็ว เปลี่ยนรูปร่างหรือสี หรือมีเลือดออก ควรให้แพทย์ตรวจ' },
+  { key: 'even', name: 'ความสม่ำเสมอของสีผิว', layer: null,
+    detail: r => `ความต่างของสีผิวเป็นปื้น ${r.raw.evenSd.toFixed(2)}`,
+    care: 'กันแดดคือพื้นฐานที่ช่วยมากที่สุด เสริมด้วยผลัดเซลล์ผิวแบบอ่อนโยน (AHA) สัปดาห์ละ 1-2 ครั้ง' },
+  { key: 'tex', name: 'ความเรียบเนียน / รูขุมขน', layer: null,
+    detail: r => `ความขรุขระของผิว ${r.raw.texSd.toFixed(2)}`,
+    care: 'ใช้ AHA/BHA สม่ำเสมอ ตอนกลางคืนอาจเริ่มเรตินอยด์ทีละน้อย (เลี่ยงช่วงตั้งครรภ์) ไม่บีบหรือแกะสิว' },
+  { key: 'dark', name: 'ความคล้ำใต้ตา', layer: null,
+    detail: r => `ใต้ตาเข้มกว่าแก้ม ${Math.max(0, r.raw.darkDiff).toFixed(1)} หน่วยความสว่าง`,
+    care: 'นอนให้พอ ลดจอมือถือก่อนนอน ทากันแดดรอบดวงตา ครีมบำรุงรอบตาที่มีคาเฟอีนหรือวิตามินซีช่วยได้บ้าง' },
+];
+const TYPE_NOTE = {
+  'ผิวมัน': 'มีความเงาทั้งโซน T และแก้ม',
+  'ผิวผสม': 'มันชัดที่หน้าผากและจมูก แก้มไม่ค่อยมัน',
+  'ผิวค่อนข้างแห้ง': 'แทบไม่มีความเงา และผิวดูไม่เรียบ',
+  'ผิวธรรมดา': 'ความมันน้อยและกระจายสม่ำเสมอ',
+};
+const band = s => s >= 75 ? ['good', 'ดี'] : s >= 50 ? ['warn', 'ปานกลาง'] : ['bad', 'ควรดูแล'];
+const LAYERS = [
+  { id: 'none', name: 'ภาพจริง' },
+  { id: 'oil', name: 'ความมัน', color: '--ov-oil' },
+  { id: 'red', name: 'รอยแดง', color: '--ov-red' },
+  { id: 'spot', name: 'จุดด่างดำ', color: '--ov-spot' },
+  { id: 'zones', name: 'โซนที่วัด' },
+  { id: 'mesh', name: 'จุดใบหน้า' },
+];
+const LAYER_NOTE = {
+  none: 'แตะชื่อหัวข้อทางขวาเพื่อดูตำแหน่งบนใบหน้า',
+  oil: 'สีฟ้า = จุดที่สะท้อนแสงเป็นเงามัน',
+  red: 'สีชมพู = บริเวณที่แดงกว่าผิวส่วนใหญ่ของคุณ',
+  spot: 'สีเหลือง = จุดที่เข้มกว่าผิวรอบข้าง (อาจรวมเงาจากรอยย่น)',
+  zones: 'พื้นที่สีคือผิวที่ใช้คำนวณ ส่วนที่มืดลง (คิ้ว ตา ปาก รูจมูก ผม) ถูกตัดออก',
+  mesh: 'จุด 468 จุดจากโมเดล MediaPipe Face Mesh ใช้กำหนดตำแหน่งโซนบนใบหน้า',
+};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const hexRgb = h => { const n = parseInt(h.replace('#', ''), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+
+function showError(msg) { const e = $('#err'); e.textContent = msg || ''; e.hidden = !msg; }
+function setView(v) {
+  $('#frameView').hidden = v !== 'frame'; $('#mapView').hidden = v !== 'map';
+  $('#vFrame').setAttribute('aria-pressed', v === 'frame'); $('#vMap').setAttribute('aria-pressed', v === 'map');
+  if (v === 'frame') drawStage();
+}
+
+function setWork(source, w, h) {
+  const s = Math.min(1, 1000 / Math.max(w, h));
+  work.width = Math.round(w * s); work.height = Math.round(h * s);
+  wctx.drawImage(source, 0, 0, work.width, work.height);
+  workData = wctx.getImageData(0, 0, work.width, work.height).data;
+  oval = detectFace(workData, work.width, work.height);
+  syncSliders();
+}
+function syncSliders() { $('#rSize').value = oval.rx / work.width; $('#rTall').value = oval.k; }
+function toManual() { if (geo.mode === 'mesh') { geo.mode = 'oval'; updateFrameNote(); } }
+function updateFrameNote() {
+  $('#autoBtn').hidden = !(geo.lm && geo.mode === 'oval');
+  $('#frameNote').textContent = geo.mode === 'mesh'
+    ? 'จุดสีขาวคือตำแหน่งที่โมเดลหาเจอ ถ้ากรอบไม่ตรง ลากหรือปรับขนาดเพื่อตั้งเอง'
+    : 'ลากกรอบให้ขอบบนอยู่ที่แนวไรผม ขอบล่างที่ปลายคาง และให้เส้น “ตา” กับ “ปาก” ตรงกับใบหน้า';
+}
+
+function drawStage() {
+  if (!workData) return;
+  stage.width = work.width; stage.height = work.height;
+  sctx.drawImage(work, 0, 0);
+  const ry = oval.rx * oval.k, lw = Math.max(2, work.width / 260);
+  sctx.save();
+  sctx.fillStyle = 'rgba(10,20,19,.55)';
+  sctx.beginPath();
+  const ang = oval.angle || 0;
+  sctx.rect(0, 0, stage.width, stage.height);
+  sctx.ellipse(oval.cx, oval.cy, oval.rx, ry, ang, 0, Math.PI * 2);
+  sctx.fill('evenodd');
+  sctx.strokeStyle = '#F4A9C2'; sctx.lineWidth = lw;
+  sctx.beginPath(); sctx.ellipse(oval.cx, oval.cy, oval.rx, ry, ang, 0, Math.PI * 2); sctx.stroke();
+  if (geo.mode === 'mesh' && geo.lm) {
+    sctx.fillStyle = 'rgba(255,255,255,.85)';
+    const d = Math.max(1.2, lw * 0.55);
+    for (const p of geo.lm) { sctx.beginPath(); sctx.arc(p[0], p[1], d, 0, Math.PI * 2); sctx.fill(); }
+    sctx.restore(); return;
+  }
+  sctx.translate(oval.cx, oval.cy); sctx.rotate(ang); sctx.translate(-oval.cx, -oval.cy);
+  sctx.setLineDash([lw * 3, lw * 2]); sctx.lineWidth = lw * 0.8; sctx.strokeStyle = 'rgba(255,255,255,.85)';
+  sctx.font = `600 ${Math.round(lw * 8)}px Anuphan, sans-serif`; sctx.fillStyle = '#fff'; sctx.textBaseline = 'middle';
+  for (const [v, t, w] of [[-0.2, 'ตา', 0.8], [0.55, 'ปาก', 0.42]]) {
+    const y = oval.cy + v * ry;
+    sctx.beginPath(); sctx.moveTo(oval.cx - oval.rx * w, y); sctx.lineTo(oval.cx + oval.rx * w, y); sctx.stroke();
+    sctx.fillText(t, oval.cx + oval.rx * w + lw * 3, y);
+  }
+  sctx.restore();
+}
+
+// drag the oval
+let drag = null;
+function ptr(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left) * stage.width / r.width, y: (e.clientY - r.top) * stage.height / r.height }; }
+stage.addEventListener('pointerdown', e => { if (!oval) return; toManual(); const p = ptr(e); drag = { dx: p.x - oval.cx, dy: p.y - oval.cy }; stage.setPointerCapture(e.pointerId); stage.style.cursor = 'grabbing'; });
+stage.addEventListener('pointermove', e => { if (!drag) return; const p = ptr(e); oval.cx = p.x - drag.dx; oval.cy = p.y - drag.dy; drawStage(); });
+const endDrag = () => { drag = null; stage.style.cursor = ''; };
+stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+$('#rSize').addEventListener('input', e => { toManual(); oval.rx = +e.target.value * work.width; drawStage(); });
+$('#rTall').addEventListener('input', e => { toManual(); oval.k = +e.target.value; drawStage(); });
+$('#vFrame').onclick = () => setView('frame');
+$('#vMap').onclick = () => setView('map');
+$('#go').onclick = () => runAnalysis(true);
+$('#autoBtn').onclick = () => { geo.mode = 'mesh'; oval = { ...geo.box }; syncSliders(); updateFrameNote(); drawStage(); };
+
+function runAnalysis(save) {
+  showError('');
+  const box = geo.mode === 'mesh' ? geo.box : oval;
+  crop = cropFace(workData, work.width, work.height, box, 360);
+  let geom = null; geo.cropPts = null;
+  if (geo.mode === 'mesh') { geo.cropPts = geo.lm.map(p => toCrop(p, box, 360)); geom = landmarkGeometry(crop.W, crop.H, geo.cropPts); }
+  const r = analyzeFace(crop, geom);
+  updateFrameNote();
+  if (r.error) { showError(r.error); setView('frame'); return; }
+  result = r;
+  renderResult();
+  drawMap();
+  setView('map');
+  if (save && !isSample) saveHistory(r);
+}
+
+function drawMap() {
+  if (!crop || !result) return;
+  const { W, H } = crop; mapC.width = W; mapC.height = H;
+  const img = new ImageData(new Uint8ClampedArray(crop.data), W, H), d = img.data, m = result.masks;
+  const bg = hexRgb(css('--sunk') || '#E3EBE9');
+  const tint = layer === 'oil' ? [m.spec, hexRgb(css('--ov-oil'))] : layer === 'red' ? [m.red, hexRgb(css('--ov-red'))] : layer === 'spot' ? [m.spot, hexRgb(css('--ov-spot'))] : null;
+  for (let i = 0, p = 0; i < W * H; i++, p += 4) {
+    const u = ((i % W) + .5) / W * 2 - 1, v = (((i / W) | 0) + .5) / H * 2 - 1;
+    if (d[p + 3] < 200 || u * u + v * v > 1) { d[p] = bg[0]; d[p + 1] = bg[1]; d[p + 2] = bg[2]; d[p + 3] = 255; continue; }
+    if (tint) {
+      if (tint[0][i]) { const c = tint[1]; d[p] = d[p] * .25 + c[0] * .75; d[p + 1] = d[p + 1] * .25 + c[1] * .75; d[p + 2] = d[p + 2] * .25 + c[2] * .75; }
+      else { const g = (d[p] * .3 + d[p + 1] * .59 + d[p + 2] * .11); d[p] = d[p] * .45 + g * .55; d[p + 1] = d[p + 1] * .45 + g * .55; d[p + 2] = d[p + 2] * .45 + g * .55; }
+    }
+  }
+  mctx.putImageData(img, 0, 0);
+  if (layer === 'zones') {
+    const ZC = { 1: [94, 156, 255], 2: [255, 196, 61], 3: [72, 214, 160], 4: [72, 214, 160], 5: [196, 120, 255], 6: [255, 120, 170], 7: [255, 120, 170] };
+    const zd = mctx.getImageData(0, 0, W, H), q = zd.data, z = result.masks.zone, v = result.masks.valid, sum = {};
+    for (let i = 0, p = 0; i < W * H; i++, p += 4) {
+      const u = ((i % W) + .5) / W * 2 - 1, vv = (((i / W) | 0) + .5) / H * 2 - 1;
+      if (u * u + vv * vv > 1) continue;
+      const c = v[i] ? ZC[z[i]] : null;
+      if (c) {
+        q[p] = q[p] * .45 + c[0] * .55; q[p + 1] = q[p + 1] * .45 + c[1] * .55; q[p + 2] = q[p + 2] * .45 + c[2] * .55;
+        const t = sum[z[i]] || (sum[z[i]] = [0, 0, 0]); t[0] += i % W; t[1] += (i / W) | 0; t[2]++;
+      } else if (!v[i]) { q[p] *= .5; q[p + 1] *= .5; q[p + 2] *= .5; }
+    }
+    mctx.putImageData(zd, 0, 0);
+    const NAME = { 1: 'หน้าผาก', 2: 'จมูก', 3: 'แก้ม', 4: 'แก้ม', 5: 'คาง', 6: 'ใต้ตา', 7: 'ใต้ตา' };
+    mctx.save(); mctx.font = '600 12px Anuphan, sans-serif'; mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
+    mctx.fillStyle = '#fff'; mctx.shadowColor = 'rgba(0,0,0,.8)'; mctx.shadowBlur = 3;
+    for (const k in sum) if (sum[k][2] > 30) mctx.fillText(NAME[k], sum[k][0] / sum[k][2], sum[k][1] / sum[k][2] + (k == 6 || k == 7 ? 14 : 0));
+    mctx.restore();
+  }
+  if (layer === 'mesh' && geo.cropPts) {
+    mctx.save(); mctx.fillStyle = 'rgba(255,255,255,.9)'; mctx.shadowColor = 'rgba(0,0,0,.5)'; mctx.shadowBlur = 2;
+    for (const p of geo.cropPts) { mctx.beginPath(); mctx.arc(p[0], p[1], 1.3, 0, Math.PI * 2); mctx.fill(); }
+    mctx.restore();
+  }
+}
+
+function renderChips() {
+  if (layer === 'mesh' && !geo.cropPts) layer = 'none';
+  $('#chips').innerHTML = LAYERS.filter(l => l.id !== 'mesh' || geo.cropPts).map(l => `<button type="button" class="chip" data-l="${l.id}" aria-pressed="${layer === l.id}">${l.color ? `<span class="dot" style="background:var(${l.color})"></span>` : ''}${l.name}</button>`).join('');
+  $('#layerNote').textContent = LAYER_NOTE[layer];
+  document.querySelectorAll('.metric').forEach(el => el.classList.toggle('on', el.dataset.l === layer));
+}
+$('#chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) setLayer(b.dataset.l); });
+function setLayer(l) { layer = l; renderChips(); drawMap(); setView('map'); }
+
+function renderResult() {
+  const r = result;
+  $('#sampleBanner').hidden = !isSample;
+  $('#overall').textContent = r.overall;
+  $('#ringV').style.strokeDashoffset = 326.73 * (1 - r.overall / 100);
+  $('#ringV').style.stroke = `var(--${band(r.overall)[0]})`;
+  $('#skinType').textContent = r.type;
+  $('#typeNote').textContent = (TYPE_NOTE[r.type] || '') + (r.mode === 'mesh' ? ' · วางโซนด้วยจุดใบหน้าอัตโนมัติ' : ' · วางโซนด้วยกรอบวงรี');
+  // ITA: left = lighter (>55), each band equal width
+  const edges = [90, 55, 41, 28, 10, -30, -70];
+  let pos = 0.5;
+  for (let i = 0; i < 6; i++) if (r.ita <= edges[i] && r.ita > edges[i + 1]) pos = (i + (edges[i] - r.ita) / (edges[i] - edges[i + 1])) / 6;
+  if (r.ita > 90) pos = 0; if (r.ita <= -70) pos = 1;
+  $('#itaPin').style.left = (Math.min(.98, Math.max(.02, pos)) * 100) + '%';
+  $('#swatch').style.background = r.tone ? `rgb(${r.tone.join(',')})` : 'transparent';
+  $('#itaText').innerHTML = `<span><b>${itaClass(r.ita)}</b> · ITA <span class="mono">${r.ita.toFixed(1)}°</span> <span style="color:var(--muted)">(วัดจากแก้ม แสงในรูปมีผลมาก)</span></span>`;
+  $('#metrics').innerHTML = METRICS.map(m => {
+    const s = r.scores[m.key], [b, label] = band(s), tag = m.layer ? 'button' : 'div';
+    return `<${tag} class="metric" ${m.layer ? `type="button" data-l="${m.layer}"` : ''}>
+      <span class="m-name">${m.name}${m.layer ? `<span class="dot" style="background:var(--ov-${m.layer})" aria-hidden="true"></span>` : ''}</span>
+      <span class="m-score s-${b}">${s}</span>
+      <span class="m-bar"><i class="b-${b}" style="width:${s}%"></i></span>
+      <span class="m-detail"><span>${m.detail(r)}</span><span class="pill s-${b}">${label}</span></span>
+    </${tag}>`;
+  }).join('');
+  const weak = METRICS.map(m => ({ m, s: r.scores[m.key] })).filter(x => x.s < 75).sort((a, b) => a.s - b.s);
+  $('#care').innerHTML = (weak.length ? weak : []).map(({ m, s }) =>
+    `<div style="border-color:var(--${band(s)[0]})"><b>${m.name} · ${s} คะแนน</b><p>${m.care}</p></div>`).join('')
+    || `<div style="border-color:var(--good)"><b>ทุกหัวข้ออยู่ในเกณฑ์ดี</b><p>รักษากิจวัตรเดิม ทากันแดดทุกวัน และถ่ายรูปเทียบในแสงเดิมทุก 2-4 สัปดาห์</p></div>`;
+  renderChips();
+  renderHistory();
+}
+$('#metrics').addEventListener('click', e => { const b = e.target.closest('button.metric'); if (b) setLayer(layer === b.dataset.l ? 'none' : b.dataset.l); });
+
+// history (kept only in this browser)
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HKEY)) || []; } catch { return []; } }
+function saveHistory(r) {
+  const h = loadHistory(); h.push({ t: Date.now(), o: r.overall, s: r.scores, ty: r.type });
+  try { localStorage.setItem(HKEY, JSON.stringify(h.slice(-30))); } catch {}
+  renderHistory();
+}
+function renderHistory() {
+  const h = loadHistory().slice().reverse();
+  $('#clearHist').hidden = !h.length;
+  if (!h.length) { $('#hist').innerHTML = `<p class="sub">ยังไม่มีประวัติ ผลจากรูปของคุณจะถูกเก็บไว้ในเบราว์เซอร์นี้เท่านั้น (เก็บเฉพาะคะแนน ไม่เก็บรูป) เพื่อดูว่าผิวดีขึ้นไหม</p>`; return; }
+  $('#hist').innerHTML = h.slice(0, 8).map((x, i) => {
+    const prev = h[i + 1], dlt = prev ? x.o - prev.o : null;
+    const ds = new Date(x.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `<div><span>${ds} · ${x.ty}</span><span class="mono">${x.o}</span><span class="mono ${dlt == null ? '' : dlt >= 0 ? 's-good' : 's-bad'}" style="min-width:3.2em;text-align:right">${dlt == null ? '–' : (dlt > 0 ? '+' : '') + dlt}</span></div>`;
+  }).join('');
+}
+let clearArmed = null;
+$('#clearHist').onclick = e => {
+  const b = e.currentTarget;
+  if (!clearArmed) { b.textContent = 'แตะอีกครั้งเพื่อยืนยันการลบ'; clearArmed = setTimeout(() => { b.textContent = 'ลบประวัติ'; clearArmed = null; }, 3500); return; }
+  clearTimeout(clearArmed); clearArmed = null; b.textContent = 'ลบประวัติ';
+  try { localStorage.removeItem(HKEY); } catch {}
+  renderHistory();
+};
+
+// file input
+$('#file').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  showError(''); $('#platePanel').classList.add('busy');
+  const url = URL.createObjectURL(f), im = new Image();
+  im.onload = () => {
+    try {
+      isSample = false; setWork(im, im.naturalWidth, im.naturalHeight); layer = 'none'; URL.revokeObjectURL(url);
+      locateFace().then(how => {
+        runAnalysis(true);
+        if (how === 'noface') showError('โมเดลหาใบหน้าในรูปนี้ไม่เจอ จึงใช้กรอบวงรีแทน ถ้ากรอบไม่ตรง กด “จัดกรอบหน้า” เพื่อปรับเอง');
+      }).finally(() => $('#platePanel').classList.remove('busy'));
+    } catch (err) { showError('อ่านรูปไม่สำเร็จ ลองเลือกรูปอื่น'); $('#platePanel').classList.remove('busy'); }
+  };
+  im.onerror = () => { showError('เปิดไฟล์นี้ไม่ได้ ลองใช้รูป JPG หรือ PNG'); $('#platePanel').classList.remove('busy'); URL.revokeObjectURL(url); };
+  im.src = url; e.target.value = '';
+});
+
+// boot with the synthetic sample
+(function boot() {
+  const W = 600, H = 780, c = document.createElement('canvas'); c.width = W; c.height = H;
+  c.getContext('2d').putImageData(new ImageData(genSample(W, H), W, H), 0, 0);
+  setWork(c, W, H);
+  updateFrameNote();
+  runAnalysis(false);
+  mesh.promise = initMesh();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawMap);
+})();
+
+</script>
+
+</body>
+</html>
